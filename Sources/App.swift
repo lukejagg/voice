@@ -4,6 +4,13 @@ import AVFoundation
 import ApplicationServices
 import Darwin
 import QuartzCore
+import OSLog
+
+enum QuitReason: String {
+    case panel, menu, externalRequest, signal
+}
+
+private let lifecycleLog = Logger(subsystem: "local.l.voice", category: "lifecycle")
 
 final class PassivePanel: NSPanel {
     override var canBecomeKey: Bool { false }
@@ -67,7 +74,8 @@ final class VoiceController: NSObject, ObservableObject, AVAudioRecorderDelegate
         panel = PassivePanel(contentRect: NSRect(x: 0, y: 0, width: 240, height: 64), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .floating; panel.isFloatingPanel = true; panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
-        panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false; panel.ignoresMouseEvents = false
+        panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false
+        panel.ignoresMouseEvents = true
         panel.contentView = NSHostingView(rootView: RecordingHUD(controller: self))
         if preview { return }
         hotkey.onSingle = { [weak self] in self?.toggle() }
@@ -80,7 +88,7 @@ final class VoiceController: NSObject, ObservableObject, AVAudioRecorderDelegate
             let item = NSMenuItem(title: title, action: action, keyEquivalent: ""); item.target = self; menu.addItem(item)
         }
         menu.addItem(.separator())
-        let quit = NSMenuItem(title: "Quit Voice", action: #selector(quitApp), keyEquivalent: "q"); quit.target = self; menu.addItem(quit)
+        let quit = NSMenuItem(title: "Quit Voice", action: #selector(quitFromMenu), keyEquivalent: "q"); quit.target = self; menu.addItem(quit)
         statusItem.menu = menu
         refreshPermissions()
         permissionsTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in Task { @MainActor in self?.refreshPermissions() } }
@@ -91,12 +99,21 @@ final class VoiceController: NSObject, ObservableObject, AVAudioRecorderDelegate
     @objc func menuSetup() { showSetup() }
     @objc func showFolder() { NSWorkspace.shared.open(store.root) }
     @objc func quitApp() {
+        quit(reason: .panel)
+    }
+    @objc func quitFromMenu() {
+        quit(reason: .menu)
+    }
+    func quit(reason: QuitReason) {
+        lifecycleLog.notice("Quit requested: \(reason.rawValue, privacy: .public)")
         shutdown()
         NSApp.terminate(nil)
     }
     func shutdown() {
+        guard !quitting else { return }
         quitting = true; workQueue.shutdown(); soundCues.stop()
         if recorder != nil { finishRecording(submit: false) }
+        panel?.ignoresMouseEvents = true
         panel?.orderOut(nil)
     }
     func refreshPermissions() {
@@ -132,6 +149,9 @@ final class VoiceController: NSObject, ObservableObject, AVAudioRecorderDelegate
         let frame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1000, height: 800)
         let target = NSRect(x: frame.midX - size.width / 2, y: frame.minY + 64, width: size.width, height: size.height)
         let visible = panel.isVisible
+        // A new visible session owns interaction again; a fading/hidden one must
+        // never intercept a click intended for the app beneath it.
+        panel.ignoresMouseEvents = false
         if !visible {
             panel.setFrame(target, display: true); panel.alphaValue = reduceMotion ? 1 : 0
             panel.orderFrontRegardless()
@@ -149,6 +169,7 @@ final class VoiceController: NSObject, ObservableObject, AVAudioRecorderDelegate
     }
     func hideHUD() {
         hideWork?.cancel(); hudGeneration += 1
+        panel.ignoresMouseEvents = true
         let generation = hudGeneration
         NSAnimationContext.runAnimationGroup { context in
             context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.16
@@ -474,14 +495,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for number in [SIGTERM, SIGINT] {
             signal(number, SIG_IGN)
             let source = DispatchSource.makeSignalSource(signal: number, queue: .main)
-            source.setEventHandler { [weak self] in self?.controller?.quitApp() }
+            source.setEventHandler { [weak self] in self?.controller?.quit(reason: .signal) }
             source.resume(); terminationSources.append(source)
         }
-        do { controller = VoiceController(store: try HistoryStore()); controller?.start() }
+        do {
+            controller = VoiceController(store: try HistoryStore()); controller?.start()
+            lifecycleLog.notice("Voice started")
+        }
         catch { let alert = NSAlert(); alert.messageText = "Voice could not start"; alert.informativeText = error.localizedDescription; alert.runModal(); NSApp.terminate(nil) }
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
-    @objc func externalQuit() { controller?.quitApp() }
-    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { controller?.shutdown(); return .terminateNow }
+    @objc func externalQuit() { controller?.quit(reason: .externalRequest) }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        lifecycleLog.notice("Application termination requested; shutdown already initiated: \(self.controller?.quitting ?? false, privacy: .public)")
+        controller?.shutdown(); return .terminateNow
+    }
     func applicationWillTerminate(_ notification: Notification) { controller?.shutdown() }
 }
