@@ -1,0 +1,21 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Audit public files
+        run: python3 Scripts/audit_public.py
+      - name: Build the native app
+        run: ./build.sh
+      - name: Run tests without microphone or API access
+        run: ./test.sh

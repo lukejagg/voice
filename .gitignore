@@ -1,0 +1,23 @@
+# Local builds and generated previews; curated public images live in docs/images/.
+/build/
+/History/
+.DS_Store
+
+# Credentials and private machine data never belong in this repository.
+.env
+.env.*
+*.env
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*.log
+*.ips
+*.lock
+*.xcuserstate
+xcuserdata/
+
+# Python development caches.
+__pycache__/
+*.py[cod]
