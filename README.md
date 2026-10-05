@@ -1,52 +1,55 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/banner-dark.png">
-  <img src="docs/images/banner-light.png" alt="Voice. Speak. Tap. Keep going. A native recording panel with a waveform, elapsed time, and close button." width="1120">
-</picture>
+<img src="docs/images/banner.jpg" alt="Voice — a glass sound wave settling into a quiet line." width="1120">
 
-<p align="center">Native macOS · Bring your own key · MIT licensed</p>
-
-Voice is a small, open-source dictation app that puts your words wherever you're already working. Press **right Option**, speak, press it again, and keep going. Your transcript arrives in the focused app while you record the next thought. No chat interface. No account with us. Just your voice, a quiet little window, and your own OpenAI key.
-
-I built it because, for my workflow, Aqua Voice felt bulky, sluggish, and hard to customize. I wanted something beautiful, native, and entirely mine to change. Voice has no subscription of its own: you pay for the transcription API you use. Every interaction, sound, and line of Swift is yours to reshape.
-
-## A little less, on purpose
-
-**Stay where you are.** The recording panel never takes focus from the app you're using. A waveform, a timer, and an X are enough.
-
-**Keep moving.** Finishing a recording immediately returns the control to idle. Transcription and paste happen in the background, in order. The next recording never waits for the last one.
-
-**Make the details matter.** Short fades. Neutral surfaces. System typography. Two original, softly synthesized sounds: a rising opening cue and a three-note finish that lands gently.
-
-**Leave the work visible.** Your latest 100 recordings and transcripts are kept locally. Double-tap right Option to revisit them; click a transcript to copy it.
-
+<p align="center"><strong>Dictation that leaves room for your thoughts.</strong></p>
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/recording-dark.png">
-    <img src="docs/images/recording-light.png" alt="The minimal recording panel: waveform, 00:14 timer, and X." width="360">
-  </picture>
+  <a href="#how-it-works">Overview</a> ·
+  <a href="#design-principles">Design</a> ·
+  <a href="#getting-started">Get started</a>
 </p>
 
-## A quiet place for your words
+Voice turns spoken thoughts into writing, with as little interruption as possible. It exists for people who want dictation to feel like a natural part of their work: immediate, quiet, and entirely theirs to change.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/history-dark.png">
-  <img src="docs/images/history-light.png" alt="Voice history in light appearance: a search field and three clean transcript rows with dates, durations, play, and copy controls." width="760">
-</picture>
+I built it after finding Aqua Voice too bulky, slow, and difficult to customize for my workflow. I wanted a smaller, more considered tool, with the freedom to shape every detail.
+
+## How it works
+
+Press **right Option** to record. Speak, then press it again to finish. Voice transcribes your recording and pastes the text into the app you're using. You can start your next recording immediately while the previous one processes in the background.
+
+Double-tap right Option from idle to open your history. Your latest 100 recordings and transcripts stay available locally, ready to replay or copy.
+
+## Design principles
+
+<img src="docs/images/recording-flow.gif" alt="Recording panel fades in, responds to speech, fades out for background transcription, and returns for the next recording." width="760">
 
 <details>
-<summary>Both appearances, the same restraint</summary>
+<summary>View a still frame</summary>
 
-| Light | Dark |
-| --- | --- |
-| ![Voice history in light mode](docs/images/history-light.png) | ![Voice history in dark mode](docs/images/history-dark.png) |
-
-All screenshots use invented sample transcripts. The banner renders the actual recording component; it isn't a mockup of a different app.
+<img src="docs/images/recording-flow.png" alt="Voice recording panel with waveform, level meter, elapsed time, and a close control." width="760">
 
 </details>
 
-## Make it yours
+The animation renders the actual recording component with simulated audio levels and timing. Captions describe the flow; they are outside the app's panel. During processing, the panel disappears and recording is available again.
 
-Requires **macOS 14 or later**, Xcode or its Command Line Tools, and an OpenAI API key with transcription access. There are no third-party runtime dependencies.
+| State | Design |
+| --- | --- |
+| Starting | Capture begins immediately; the panel fades in afterward. |
+| Recording | A waveform, audio level, elapsed time, and close control. Focus stays in your app. |
+| Processing | The panel fades away. Transcription continues in the background. |
+| Continuing | The next recording starts immediately. Completed text arrives without changing its panel. |
+
+Neutral surfaces, system typography, and short fades keep the interface quiet. Two original sound cues mark the beginning and end of capture. Light and dark appearances follow macOS; motion respects the system's Reduce Motion setting.
+
+## Product principles
+
+- **Responsiveness.** Network work never blocks the next recording. Results paste in submission order.
+- **Ownership.** The source, interaction, and sound design are open to change. MIT licensed.
+- **Simple economics.** No Voice subscription. Use your own OpenAI key and pay for API usage.
+- **Recoverability.** Recordings are saved before transcription. Failed requests retain their audio for retry.
+- **Clear data boundaries.** Local history, no application analytics, and no separate Voice server. Completed audio is sent to OpenAI for transcription.
+
+## Getting started
+
+Requires **macOS 14+**, Xcode or its Command Line Tools, and an OpenAI API key with transcription access. This is a source build; a notarized installer is not currently provided.
 
 ```zsh
 git clone https://github.com/lukejagg/voice.git ~/Projects/Voice
@@ -55,69 +58,70 @@ cd ~/Projects/Voice
 open build/Voice.app
 ```
 
-Keep your key **outside the checkout**, in `~/secrets/openai.env`:
+Save your key outside the repository in `~/secrets/openai.env`:
 
 ```dotenv
 export OPENAI_API_KEY="your-api-key"
 ```
 
-Protect that directory and file with `chmod 700 ~/secrets` and `chmod 600 ~/secrets/openai.env`. Voice reads this file directly, including when launched from Finder. Never commit your key.
+Set directory permissions to `700` and file permissions to `600`. Voice reads this file directly, including when opened from Finder.
 
-The first launch offers **Microphone**, **Accessibility**, and **Input Monitoring** permissions. Enable Voice in System Settings → Privacy & Security. If macOS asks, quit and reopen afterward.
+Enable **Microphone**, **Accessibility**, and **Input Monitoring** for Voice in System Settings → Privacy & Security. Quit and reopen if macOS requests it. Without Accessibility, completed text remains on the clipboard for manual paste.
 
-| Gesture | Action |
+| Control | Action |
 | --- | --- |
 | Right Option | Start or finish recording |
-| Double-tap right Option | Open history |
+| Double-tap right Option from idle | Open history |
 | Click a transcript | Copy it |
 | X on the recording panel | Quit Voice |
 
-A rapid finish → start is treated as two recording actions, not a double-tap. To open history from idle, double-tap; the tentative recording from its first tap is discarded.
+A rapid finish → start is always two recording actions. An idle double-tap discards the tentative recording created by its first tap.
 
-Want it ready when you log in?
+To start Voice at login:
 
 ```zsh
 python3 Scripts/login_startup.py enable
 ```
 
-Disable with `python3 Scripts/login_startup.py disable`. Login startup opens the app quietly and honors the single-instance guard; quitting leaves it closed until you launch it again or next log in.
+Use `disable` to remove login startup, or `status` to check it. Quitting leaves Voice closed until its next launch or login.
 
-## Under the surface
+## Technical details
 
-| Layer | Choice |
+Native Swift, with no third-party runtime dependencies.
+
+| Component | Implementation |
 | --- | --- |
-| Interface | SwiftUI, AppKit, SF Symbols |
-| Audio | AVFoundation · mono 24 kHz AAC recording |
-| Transcription | OpenAI `gpt-transcribe` through `URLSession` |
-| Shortcut & paste | Core Graphics event tap and Command-V |
-| Background work | Main-actor ordered queue, independent of microphone capture |
-| History | Local audio, plain text, and JSON files |
+| Interface | SwiftUI, AppKit, SF Symbols; a nonactivating recording panel |
+| Audio | AVFoundation; mono 24 kHz AAC |
+| Transcription | OpenAI `gpt-transcribe` via Foundation `URLSession` |
+| Input and paste | Core Graphics event tap; Command-V into the focused app |
+| Background work | Ordered asynchronous queue, independent of capture |
+| Persistence | Local audio, text, and JSON; latest 100 sessions |
 | Single instance | Atomic OS file lock |
-| Sound | Original 48 kHz WAV cues synthesized with Python's standard library |
+| Sound | Original synthesized 48 kHz stereo WAV cues |
 
-The app sends completed recordings to OpenAI for transcription. Audio and transcripts are stored in `~/Projects/Voice/History/`, with owner-only permissions. API keys stay in the separate secret file. There is no application analytics or separate Voice server. This is **not offline transcription**.
+History lives in `~/Projects/Voice/History/` with owner-only permissions. In-flight sessions are protected from pruning. Recording stops after 20 minutes; quitting preserves active audio, cancels pending work, and prevents late pastes. Transcription speed, availability, and cost depend on OpenAI and your connection.
 
-Each session retains its recording, transcript, timestamp, duration, and any error. Older sessions are removed after the latest 100, with in-flight work protected until it completes. Recording stops automatically after 20 minutes. Failed requests keep their audio for retry. Quitting cancels pending work and prevents late pastes.
+<details>
+<summary>Development</summary>
 
-Paste uses the focused app's normal Command-V behavior. Without Accessibility permission, text is copied for manual paste. Transcription latency, availability, and charges depend on OpenAI and your connection; Voice keeps capture responsive while requests finish.
-
-### Change a detail
-
-- **Panel and history:** `Sources/App.swift`
-- **Shortcut:** `Sources/Hotkey.swift`
-- **Model, retention, and key loading:** `Sources/Core.swift`
-- **Background delivery:** `Sources/WorkQueue.swift`
-- **Sound design:** `Scripts/design_sounds.py` → `Assets/Sounds/`
-
-[Listen to the start cue](Assets/Sounds/record-start.wav) · [Listen to the finish cue](Assets/Sounds/record-finish.wav)
+| Change | File |
+| --- | --- |
+| Interface and recording lifecycle | `Sources/App.swift` |
+| Keyboard gesture | `Sources/Hotkey.swift` |
+| Model, key loading, and history | `Sources/Core.swift` |
+| Background delivery | `Sources/WorkQueue.swift` |
+| Sound design | `Scripts/design_sounds.py` |
 
 ```zsh
-./test.sh       # Logic, API mocks, overlapping work, paste order, and cancellation
-./preview.sh    # Screenshots with sample data; no microphone or API calls
+./test.sh       # API mocks, gestures, retention, overlap, and cancellation
+./preview.sh    # Native UI screenshots using sample data
 ```
 
-Quit before rebuilding. Builds are locally ad-hoc signed; this repository currently distributes source, not a notarized installer. Development notes and the design contract live in [AGENTS.md](AGENTS.md).
+Quit before rebuilding. Local builds use ad-hoc signing. The architecture and design contract are documented in [AGENTS.md](AGENTS.md).
 
----
+[Start cue](Assets/Sounds/record-start.wav) · [Finish cue](Assets/Sounds/record-finish.wav)
 
-[MIT](LICENSE). Small by design. Yours to change.
+</details>
+
+[MIT license](LICENSE)

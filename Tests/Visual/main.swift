@@ -2,21 +2,31 @@ import AppKit
 import SwiftUI
 import Foundation
 
-struct RepositoryBanner: View {
+struct RecordingSequence: View {
     @ObservedObject var controller: VoiceController
+    let opacity: Double
+    let phase: Int
+    private let phases = ["Start", "Record", "Process", "Record again"]
     var body: some View {
-        HStack(spacing: 70) {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Voice").font(.system(size: 86, weight: .semibold)).tracking(-5)
-                Text("Speak. Tap. Keep going.").font(.system(size: 24, weight: .regular)).foregroundStyle(.secondary)
-                Text("A quieter way to type.").font(.system(size: 14)).foregroundStyle(.tertiary).padding(.top, 22)
-            }
-            Spacer(minLength: 0)
+        VStack(spacing: 0) {
+            Spacer()
             RecordingHUD(controller: controller)
-                .scaleEffect(1.25)
-                .shadow(color: Color.black.opacity(0.08), radius: 24, y: 12)
-                .frame(width: 310)
-        }.padding(.horizontal, 96).frame(width: 1120, height: 420)
+                .shadow(color: Color.black.opacity(0.07), radius: 16, y: 8)
+                .opacity(opacity)
+                .frame(height: 100)
+            Spacer()
+            HStack(spacing: 24) {
+                ForEach(0..<phases.count, id: \.self) { index in
+                    HStack(spacing: 7) {
+                        Circle().fill(Color.primary.opacity(index == phase ? 0.8 : 0.16)).frame(width: 4, height: 4)
+                        Text(phases[index]).font(.system(size: 12, weight: index == phase ? .medium : .regular))
+                            .foregroundStyle(Color.primary.opacity(index == phase ? 0.85 : 0.35))
+                    }
+                }
+            }
+            Text(phase == 2 ? "Transcribing in the background. Ready for your next thought." : "Right Option")
+                .font(.system(size: 11)).foregroundStyle(.secondary).padding(.top, 14).padding(.bottom, 32)
+        }.frame(width: 760, height: 260)
             .background(Color(nsColor: .windowBackgroundColor))
     }
 }
@@ -30,6 +40,45 @@ let controller = VoiceController(store: try HistoryStore(root: root))
 let output = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
 try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
 controller.start(preview: true)
+if CommandLine.arguments.contains("--motion") {
+    application.appearance = NSAppearance(named: .aqua)
+    controller.recording = true
+    controller.showHUD("Listening")
+    controller.panel.orderOut(nil)
+    let frameDirectory = output.appendingPathComponent("motion", isDirectory: true)
+    try FileManager.default.createDirectory(at: frameDirectory, withIntermediateDirectories: true)
+    let host = NSHostingView(rootView: RecordingSequence(controller: controller, opacity: 0, phase: 0))
+    host.frame = NSRect(x: 0, y: 0, width: 760, height: 260)
+    let window = NSWindow(contentRect: host.frame, styleMask: .borderless, backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    window.contentView = host
+    var frame = 0
+    @MainActor func renderFrame() {
+        guard frame < 96 else {
+            window.close()
+            try? FileManager.default.removeItem(at: root)
+            print("Captured 96 sample-data recording-sequence frames")
+            exit(0)
+        }
+        let seconds = Double(frame) / 12
+        let phase = seconds < 1 ? 0 : (seconds < 3.5 ? 1 : (seconds < 5.5 ? 2 : 3))
+        let opacity = seconds < 0.5 ? min(seconds / 0.2, 1) :
+            (seconds >= 3.5 && seconds < 5.5 ? max(1 - (seconds - 3.5) / 0.2, 0) :
+            (seconds >= 5.5 ? min((seconds - 5.5) / 0.2, 1) : 1))
+        controller.elapsed = phase == 3 ? seconds - 5.5 : min(seconds, 3.5)
+        controller.level = Float(0.04 + abs(sin(seconds * 5.2)) * 0.15)
+        host.rootView = RecordingSequence(controller: controller, opacity: opacity, phase: phase)
+        host.layoutSubtreeIfNeeded()
+        guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { fatalError("No bitmap") }
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        try! bitmap.representation(using: .png, properties: [:])!.write(to: frameDirectory.appendingPathComponent(String(format: "%03d.png", frame)))
+        frame += 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 / 12) { renderFrame() }
+    }
+    DispatchQueue.main.async { renderFrame() }
+    application.run()
+    exit(0)
+}
 controller.entries = [
     Recording(id: "preview-1", createdAt: Date(timeIntervalSince1970: 1791155400), duration: 18, text: "Let's keep this simple. A quiet place for your thoughts, ready whenever you need them.", error: nil, model: Configuration.model),
     Recording(id: "preview-2", createdAt: Date(timeIntervalSince1970: 1791151800), duration: 32, text: "Move the review to Thursday afternoon and send the updated notes before lunch.", error: nil, model: Configuration.model),
@@ -51,15 +100,6 @@ for appearance in [NSAppearance.Name.aqua, .darkAqua] {
         controller.showHUD("Listening")
     }
     work.append { capture(controller.panel.contentView!, name: "recording-" + suffix) }
-    work.append {
-        let host = NSHostingView(rootView: RepositoryBanner(controller: controller))
-        host.frame = NSRect(x: 0, y: 0, width: 1120, height: 420)
-        let window = NSWindow(contentRect: host.frame, styleMask: .borderless, backing: .buffered, defer: false)
-        window.isReleasedWhenClosed = false
-        window.contentView = host
-        capture(host, name: "banner-" + suffix)
-        window.close()
-    }
     work.append { controller.recording = false; controller.busy = true; controller.showHUD("Transcribing") }
     work.append {
         capture(controller.panel.contentView!, name: "transcribing-" + suffix)
