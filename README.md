@@ -19,25 +19,13 @@ Double-tap right Option from idle to open your history. Your latest 100 recordin
 
 ## Design principles
 
-<img src="docs/images/recording-flow.gif" alt="Recording panel fades in, responds to speech, fades out for background transcription, and returns for the next recording." width="760">
+<img src="docs/images/recording-flow.gif" alt="Voice panel design: responsive recording waveform transitions to an animated spinner and Transcribing label." width="480">
 
-<details>
-<summary>View a still frame</summary>
+A waveform, elapsed time, and a close control while recording. A smaller panel with a quiet spinner for the processing design. Neutral surfaces, system typography, and short transitions keep both restrained.
 
-<img src="docs/images/recording-flow.png" alt="Voice recording panel with waveform, level meter, elapsed time, and a close control." width="760">
+This is a panel design preview with simulated audio and timing. In the app, transcription runs in the background and the panel clears immediately for your next recording.
 
-</details>
-
-The animation renders the actual recording component with simulated audio levels and timing. Captions describe the flow; they are outside the app's panel. During processing, the panel disappears and recording is available again.
-
-| State | Design |
-| --- | --- |
-| Starting | Capture begins immediately; the panel fades in afterward. |
-| Recording | A waveform, audio level, elapsed time, and close control. Focus stays in your app. |
-| Processing | The panel fades away. Transcription continues in the background. |
-| Continuing | The next recording starts immediately. Completed text arrives without changing its panel. |
-
-Neutral surfaces, system typography, and short fades keep the interface quiet. Two original sound cues mark the beginning and end of capture. Light and dark appearances follow macOS; motion respects the system's Reduce Motion setting.
+Two original sound cues mark the beginning and end of capture. The interface follows macOS light and dark appearance and respects Reduce Motion.
 
 ## Product principles
 

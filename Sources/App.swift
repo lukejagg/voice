@@ -326,13 +326,26 @@ struct QuietIcon: View {
 
 struct RecordingHUD: View {
     @ObservedObject var controller: VoiceController
+    // Deterministic frames for the design preview; live UI uses native ProgressView.
+    var previewSpinnerPhase: Int? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var transcribing: Bool { controller.state == "Transcribing" || controller.state == "Cancelling" }
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
                 if transcribing {
-                    ProgressView().controlSize(.small).tint(.primary).transition(.opacity.combined(with: .scale(scale: 0.7)))
+                    if let phase = previewSpinnerPhase {
+                        ZStack {
+                            ForEach(0..<12, id: \.self) { index in
+                                Capsule().fill(Color.primary.opacity(0.15 + 0.7 * Double((index + phase) % 12) / 11))
+                                    .frame(width: 1.5, height: 3.5)
+                                    .offset(y: -5.5)
+                                    .rotationEffect(.degrees(Double(index) * 30))
+                            }
+                        }.frame(width: 14, height: 14)
+                    } else {
+                        ProgressView().controlSize(.small).tint(.primary).transition(.opacity.combined(with: .scale(scale: 0.7)))
+                    }
                 } else {
                     Image(systemName: controller.state == "Listening" ? "waveform" : "exclamationmark.circle")
                         .font(.system(size: 19, weight: .medium))

@@ -13,8 +13,8 @@ if len(paths) != 96:
 frames = []
 for path in paths:
     with Image.open(path) as image:
-        frames.append(image.convert("RGB").resize((760, 260), Image.Resampling.LANCZOS))
-palette = frames[24].quantize(colors=128)
+        frames.append(image.convert("RGB").resize((480, 160), Image.Resampling.LANCZOS))
+palette = frames[24].quantize(colors=256)
 frames = [frame.quantize(palette=palette, dither=Image.Dither.NONE) for frame in frames]
 destination = root / "docs/images/recording-flow.gif"
 frames[0].save(destination, save_all=True, append_images=frames[1:],

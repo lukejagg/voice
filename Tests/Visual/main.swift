@@ -5,28 +5,13 @@ import Foundation
 struct RecordingSequence: View {
     @ObservedObject var controller: VoiceController
     let opacity: Double
-    let phase: Int
-    private let phases = ["Start", "Record", "Process", "Record again"]
+    var spinnerPhase: Int = 0
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-            RecordingHUD(controller: controller)
-                .shadow(color: Color.black.opacity(0.07), radius: 16, y: 8)
-                .opacity(opacity)
-                .frame(height: 100)
-            Spacer()
-            HStack(spacing: 24) {
-                ForEach(0..<phases.count, id: \.self) { index in
-                    HStack(spacing: 7) {
-                        Circle().fill(Color.primary.opacity(index == phase ? 0.8 : 0.16)).frame(width: 4, height: 4)
-                        Text(phases[index]).font(.system(size: 12, weight: index == phase ? .medium : .regular))
-                            .foregroundStyle(Color.primary.opacity(index == phase ? 0.85 : 0.35))
-                    }
-                }
-            }
-            Text(phase == 2 ? "Transcribing in the background. Ready for your next thought." : "Right Option")
-                .font(.system(size: 11)).foregroundStyle(.secondary).padding(.top, 14).padding(.bottom, 32)
-        }.frame(width: 760, height: 260)
+        RecordingHUD(controller: controller, previewSpinnerPhase: spinnerPhase)
+            .shadow(color: Color.black.opacity(0.07), radius: 16, y: 8)
+            .opacity(opacity)
+            .scaleEffect(1.25)
+            .frame(width: 480, height: 160)
             .background(Color(nsColor: .windowBackgroundColor))
     }
 }
@@ -47,8 +32,8 @@ if CommandLine.arguments.contains("--motion") {
     controller.panel.orderOut(nil)
     let frameDirectory = output.appendingPathComponent("motion", isDirectory: true)
     try FileManager.default.createDirectory(at: frameDirectory, withIntermediateDirectories: true)
-    let host = NSHostingView(rootView: RecordingSequence(controller: controller, opacity: 0, phase: 0))
-    host.frame = NSRect(x: 0, y: 0, width: 760, height: 260)
+    let host = NSHostingView(rootView: RecordingSequence(controller: controller, opacity: 0.35))
+    host.frame = NSRect(x: 0, y: 0, width: 480, height: 160)
     let window = NSWindow(contentRect: host.frame, styleMask: .borderless, backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
     window.contentView = host
@@ -61,13 +46,21 @@ if CommandLine.arguments.contains("--motion") {
             exit(0)
         }
         let seconds = Double(frame) / 12
-        let phase = seconds < 1 ? 0 : (seconds < 3.5 ? 1 : (seconds < 5.5 ? 2 : 3))
-        let opacity = seconds < 0.5 ? min(seconds / 0.2, 1) :
-            (seconds >= 3.5 && seconds < 5.5 ? max(1 - (seconds - 3.5) / 0.2, 0) :
-            (seconds >= 5.5 ? min((seconds - 5.5) / 0.2, 1) : 1))
-        controller.elapsed = phase == 3 ? seconds - 5.5 : min(seconds, 3.5)
+        let processing = seconds >= 4
+        if processing && controller.state != "Transcribing" {
+            controller.recording = false
+            controller.busy = true
+            controller.state = "Transcribing"
+        }
+        // Show the two existing panel designs, not the application's hidden
+        // background-work lifecycle. Keep transitions short and the panel visible.
+        let resizeProgress = min(max((seconds - 4) / 0.2, 0), 1)
+        controller.hudSize = CGSize(width: 240 - 24 * resizeProgress, height: 64)
+        let opacity = seconds < 0.2 ? 0.35 + 0.65 * seconds / 0.2 :
+            (seconds > 7.7 ? max(0.35, 1 - (seconds - 7.7) / 0.3) : 1)
+        controller.elapsed = min(seconds, 4)
         controller.level = Float(0.04 + abs(sin(seconds * 5.2)) * 0.15)
-        host.rootView = RecordingSequence(controller: controller, opacity: opacity, phase: phase)
+        host.rootView = RecordingSequence(controller: controller, opacity: opacity, spinnerPhase: frame % 12)
         host.layoutSubtreeIfNeeded()
         guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { fatalError("No bitmap") }
         host.cacheDisplay(in: host.bounds, to: bitmap)
